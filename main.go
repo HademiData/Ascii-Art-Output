@@ -77,7 +77,7 @@ func printBannertoArt(text string, charMap map[rune][]string) string {
 
 func main() {
 
-	if len(os.Args) != 4 || !(len(os.Args[1])> 9)  {
+	if len(os.Args) != 4 || !(len(os.Args[1]) > 9) {
 		log.Fatal("\nUsage: go run . [OPTION] [STRING] [BANNER]\n\nEX: go run . --output=<fileName.txt> something standard")
 	}
 
@@ -85,7 +85,6 @@ func main() {
 	options := os.Args[1]
 
 	outputFileName := ""
-
 
 	if options[:9] == "--output=" && strings.HasSuffix(options, ".txt") {
 		outputFileName = strings.TrimPrefix(options, "--output=")
@@ -95,8 +94,7 @@ func main() {
 
 	//---------- INPUT TEXT ----------------
 	inputText := strings.ReplaceAll(os.Args[2], "\\n", "\n")
-	
-	
+
 	//--------- BANNER FILE-----------------
 	bannerFile := os.Args[3] + ".txt"
 
@@ -107,11 +105,8 @@ func main() {
 	}
 	banner := strings.Split(string(buffer), "\n")
 
-
 	finalProcessedResult := printBannertoArt(inputText, parseBanner(banner))
 
-
-	
 	outputFile, err := os.Create(outputFileName)
 
 	if err != nil {
@@ -129,9 +124,5 @@ func main() {
 	}
 
 	writer.Flush()
-
-
-
-
 
 }
