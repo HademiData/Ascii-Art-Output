@@ -1,44 +1,38 @@
 package main
 
 import (
+	"bufio"
 	"log"
 	"os"
 	"strings"
 )
 
-// -------- OPTION PARSER --------
+// ----------- PARSER ----------------
 
-func parseOption(arg string) string {
-
-	if !strings.HasPrefix(arg, "--output=") || !strings.HasSuffix(arg, ".txt") {
-		log.Fatal("Usage: go run . [OPTION] [STRING] [BANNER]\n\nEX: go run . --output=<fileName.txt> something standard")
-	}
-
-	return strings.TrimPrefix(arg, "--output=")
-}
-
-// -------- BANNER PARSER --------
-
-func parseBanner(lines []string) map[rune][]string {
-
+func parseBanner(banner []string) map[rune][]string {
 	charMap := make(map[rune][]string)
+	var block []string
+	code := 32 //ASCII space
 
-	for i := 0; i < 95; i++ {
-
-		start := i*9 + 1
-		end := start + 8
-
-		charMap[rune(i+32)] = lines[start:end]
-
+	for _, line := range banner {
+		line = strings.TrimRight(line, "\r")
+		if line == "" {
+			if len(block) > 0 {
+				charMap[rune(code)] = block
+				block = []string{}
+				code++
+			}
+		} else {
+			block = append(block, line)
+		}
 	}
-
+	if len(block) > 0 {
+		charMap[rune(code)] = block
+	}
 	return charMap
 }
 
-// -------- ASCII RENDERER --------
-
-func render(text string, banner map[rune][]string) string {
-
+func printBannertoArt(text string, charMap map[rune][]string) string {
 	lines := strings.Split(text, "\n")
 	var result []string
 
@@ -49,58 +43,95 @@ func render(text string, banner map[rune][]string) string {
 			continue
 		}
 
-		for row := 0; row < 8; row++ {
-
-			var out string
-
-			for _, char := range line {
-
-				if block, ok := banner[char]; ok {
-					out += block[row]
+		maxHeight := 0
+		for _, char := range line {
+			if block, ok := charMap[char]; ok {
+				if len(block) > maxHeight {
+					maxHeight = len(block)
 				}
-
 			}
-
-			result = append(result, out)
-
 		}
 
+		for row := 0; row < maxHeight; row++ {
+
+			var builder strings.Builder
+
+			for _, char := range line {
+				block, ok := charMap[char]
+
+				if ok {
+					if row < len(block) {
+						builder.WriteString(block[row])
+					} else {
+						builder.WriteString(strings.Repeat(" ", len(block[0])))
+					}
+				}
+			}
+
+			result = append(result, builder.String())
+		}
 	}
 
 	return strings.Join(result, "\n")
 }
 
-// -------- MAIN --------
-
 func main() {
 
-	if len(os.Args) != 4 {
-		log.Fatal("Usage: go run . [OPTION] [STRING] [BANNER]\n\nEX: go run . --output=<fileName.txt> something standard")
+	if len(os.Args) != 4 || !(len(os.Args[1])> 9)  {
+		log.Fatal("\nUsage: go run . [OPTION] [STRING] [BANNER]\n\nEX: go run . --output=<fileName.txt> something standard")
 	}
 
-	// parse flag
-	outputFile := parseOption(os.Args[1])
+	//------------ OPTIONS ----------------
+	options := os.Args[1]
 
-	// handle \n
-	input := strings.ReplaceAll(os.Args[2], "\\n", "\n")
+	outputFileName := ""
 
-	// banner file
+
+	if options[:9] == "--output=" && strings.HasSuffix(options, ".txt") {
+		outputFileName = strings.TrimPrefix(options, "--output=")
+	} else {
+		log.Fatal("\nUsage: go run . [OPTION] [STRING] [BANNER]\n\nEX: go run . --output=<fileName.txt> something standard")
+	}
+
+	//---------- INPUT TEXT ----------------
+	inputText := strings.ReplaceAll(os.Args[2], "\\n", "\n")
+	
+	
+	//--------- BANNER FILE-----------------
 	bannerFile := os.Args[3] + ".txt"
 
-	data, err := os.ReadFile(bannerFile)
+	buffer, err := os.ReadFile(bannerFile)
+
 	if err != nil {
-		log.Fatal("Error reading banner file:", err)
+		log.Fatal("Error reading Banner file: ", err)
+	}
+	banner := strings.Split(string(buffer), "\n")
+
+
+	finalProcessedResult := printBannertoArt(inputText, parseBanner(banner))
+
+
+	
+	outputFile, err := os.Create(outputFileName)
+
+	if err != nil {
+		log.Fatal("Error creating output file: ", err)
 	}
 
-	lines := strings.Split(string(data), "\n")
+	defer outputFile.Close()
 
-	charMap := parseBanner(lines)
+	writer := bufio.NewWriter(outputFile)
 
-	result := render(input, charMap)
+	_, err = writer.WriteString(finalProcessedResult)
 
-	// write output
-	err = os.WriteFile(outputFile, []byte(result), 0644)
 	if err != nil {
-		log.Fatal("Error writing output file:", err)
+		log.Fatalf("Error Writing to output file: %v\n", err)
 	}
+
+	writer.Flush()
+
+
+
+
+
 }
